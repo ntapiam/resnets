@@ -74,16 +74,19 @@ if __name__ == "__main__":
     training_dataloader = DataLoader(training_data, batch_size=64)
     test_dataloader = DataLoader(test_data, batch_size=64)
 
-    resnet = ResNet(5)
+    n_blocks = 50
+    n_epochs = 100
+    learning_rate = 1e-3
+    
+    resnet = ResNet(n_blocks)
     loss_fn = nn.CrossEntropyLoss()
-    optim = torch.optim.SGD(resnet.parameters(), lr=1e-3)
+    optim = torch.optim.SGD(resnet.parameters(), lr=learning_rate)
 
-
-    for t in range(10):
+    for t in range(n_epochs):
         print(f"Epoch {t+1}")
         train_loop(training_dataloader, resnet, loss_fn, optim)
         test_loop(test_dataloader, resnet, loss_fn, optim)
 
-    torch.save(resnet.state_dict(), 'resnet5_relu_lin.pth')
+    torch.save(resnet.state_dict(), 'resnet'+n_blocks+'_relu_lin.pth')
     print("Done!")
 
