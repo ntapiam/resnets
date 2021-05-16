@@ -6,7 +6,7 @@ class ResNetBlock(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.block = nn.Sequential(nn.ReLU(), nn.Linear(28 * 28, 28 * 28, bias=False))
+        self.block = nn.Sequential(nn.ELU(), nn.Linear(28 * 28, 28 * 28, bias=False))
 
     def forward(self, x):
         return x + self.block(x)
@@ -74,13 +74,13 @@ if __name__ == "__main__":
     training_dataloader = DataLoader(training_data, batch_size=64)
     test_dataloader = DataLoader(test_data, batch_size=64)
 
-    n_blocks = 50
+    n_blocks = 128
     n_epochs = 100
     learning_rate = 1e-3
     
     resnet = ResNet(n_blocks)
     loss_fn = nn.CrossEntropyLoss()
-    optim = torch.optim.SGD(resnet.parameters(), lr=learning_rate)
+    optim = torch.optim.Adam(resnet.parameters(), lr=learning_rate)
 
     for t in range(n_epochs):
         print(f"Epoch {t+1}")
