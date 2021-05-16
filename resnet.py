@@ -63,13 +63,19 @@ if __name__ == "__main__":
         root="data",
         train=True,
         download=True,
-        transform=ToTensor()
+        transform=Compose([
+            ToTensor(),
+            Normalize(0, 255)
+            ])
     )
     test_data = datasets.MNIST(
         root="data",
         train=False,
         download=True,
-        transform=ToTensor()
+        transform=Compose([
+            ToTensor(),
+            Normalize(0, 255)
+            ])
     )
     training_dataloader = DataLoader(training_data, batch_size=64)
     test_dataloader = DataLoader(test_data, batch_size=64)
