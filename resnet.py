@@ -84,10 +84,10 @@ if __name__ == "__main__":
     training_dataloader = DataLoader(training_data, batch_size=64, pin_memory=True)
     test_dataloader = DataLoader(test_data, batch_size=64, pin_memory=True)
 
-    n_blocks = 128
+    n_blocks = 50
     n_epochs = 100
-    learning_rate = 1e-3
-    
+    learning_rate = 1e-5
+
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     resnet = ResNet(n_blocks).to(DEVICE)
