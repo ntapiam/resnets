@@ -38,6 +38,7 @@ def train_loop(data, model, loss_fn, optim, device):
 
         optim.zero_grad()
         loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), 10)
         optim.step()
 
         if batch % 100 == 0:
