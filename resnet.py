@@ -59,7 +59,10 @@ def test_loop(data, model, loss_fn, optim, device):
 
     test_loss /= size
     correct /= size
-    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    print(
+        f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n"
+    )
+
 
 if __name__ == "__main__":
     from torchvision import datasets
@@ -70,22 +73,16 @@ if __name__ == "__main__":
         root="data",
         train=True,
         download=True,
-        transform=Compose([
-            ToTensor(),
-            Normalize(0, 255)
-            ])
+        transform=Compose([ToTensor(), Normalize(0, 255)]),
     )
     test_data = datasets.MNIST(
         root="data",
         train=False,
         download=True,
-        transform=Compose([
-            ToTensor(),
-            Normalize(0, 255)
-            ])
+        transform=Compose([ToTensor(), Normalize(0, 255)]),
     )
-    training_dataloader = DataLoader(training_data, batch_size=64)
-    test_dataloader = DataLoader(test_data, batch_size=64)
+    training_dataloader = DataLoader(training_data, batch_size=64, pin_memory=True)
+    test_dataloader = DataLoader(test_data, batch_size=64, pin_memory=True)
 
     n_blocks = 128
     n_epochs = 100
@@ -107,4 +104,3 @@ if __name__ == "__main__":
     finally:
         torch.save(resnet.state_dict(), f"resnet{n_blocks}_relu_lin_e{t+1}.pth")
     print("Done!")
-
