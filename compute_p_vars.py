@@ -10,7 +10,7 @@ Read out the ResNet as trained in resnet.py and further analyze it.
 
 import torch
 import numpy as np
-from p_var import p_var_backbone
+from p_var import p_var_backbone, p_var_backbone_ref
 
 ## Check if the variations should be re-computed
 nLayers = 128
@@ -55,6 +55,7 @@ path_dist = lambda k,l: np.linalg.norm(dW[k,:,:] - dW[l,:,:], mNorm)
 fNameFro = fNameBase + "_pVar_fro.npy"
 
 pVarsFro = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
+
 with open(fNameFro, "wb") as f:
     np.save(f, pVarsFro)
 

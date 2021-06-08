@@ -34,7 +34,7 @@ fName_i_j = fNameBase + f"_pVar_{iIndex}_{jIndex}.npy"
 with open(fName_i_j, "rb") as f:
     pVars_i_j = np.load(f)
     
-plt.plot(pGrid, pVars_i_j)
+plt.plot(pGrid, pVars_i_j**(1.0/pGrid))
 plt.show()
 
 ## Compute the p-variation for the whole matrix, using a specific matrix norm
@@ -45,7 +45,7 @@ fNameFro = fNameBase + "_pVar_fro.npy"
 with open(fNameFro, "rb") as f:
     pVarsFro = np.load(f)
         
-plt.plot(pGrid, pVarsFro)
+plt.plot(pGrid, pVarsFro**(1.0/pGrid))
 plt.show()
 ## Gives an increasing function???
 
@@ -56,5 +56,5 @@ fName2 = fNameBase + "_pVar_2.npy"
 with open(fName2, "rb") as f:
     pVars2 = np.load(f)
         
-plt.plot(pGrid, pVars2)
+plt.plot(pGrid, pVars2**(1.0/pGrid))
 plt.show()
