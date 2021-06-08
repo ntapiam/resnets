@@ -10,7 +10,6 @@ Read out the ResNet as trained in resnet.py and further analyze it.
 
 import torch
 import numpy as np
-from resnet import ResNet, ResNetBlock
 from p_var import p_var_backbone
 
 ## Check if the variations should be re-computed
@@ -24,12 +23,10 @@ fName = fNameBase + ".pth"
 ## To get parameters: resnet.resnet_stack[i].block[1].weight.data
 ## for the ith ResNet-block, i=1,.. (i=0 is a Flatten layer)
 
-resnet = torch.load(fName)
-
-N = len(resnet.resnet_stack)
-
-## generate a list of all weights of the ResNet blocks
-dW_list = [resnet.resnet_stack[i].block[1].weight.data.cpu().numpy() for i in range(1, N-1)]
+resnet_dic = torch.load(fName)
+resnet_vals = list(resnet_dic.values())
+# now need to convert the parameters of Resnet blocks to numpy arrays
+dW_list = [resnet_vals[i].cpu().numpy() for i in range(1, nLayers)]
 dW = np.array(dW_list)
 
 ## Save the weights
@@ -46,7 +43,7 @@ pGrid = np.linspace(1.0, 3.0, 100)
 path_dist = lambda k, l: np.abs(dW[k,iIndex,jIndex] - dW[l,iIndex,jIndex])
 fName_i_j = fNameBase + f"_pVar_{iIndex}_{jIndex}.npy"
 
-pVars_i_j = np.array([p_var_backbone(N-2, p, path_dist).value for p in pGrid])
+pVars_i_j = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
 
 with open(fName_i_j, "wb") as f:
     np.save(f, pVars_i_j)
@@ -57,7 +54,7 @@ pGrid = np.linspace(1.0, 3.0, 100)
 path_dist = lambda k,l: np.linalg.norm(dW[k,:,:] - dW[l,:,:], mNorm)
 fNameFro = fNameBase + "_pVar_fro.npy"
 
-pVarsFro = np.array([p_var_backbone(N-2, p, path_dist).value for p in pGrid])
+pVarsFro = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
 with open(fNameFro, "wb") as f:
     np.save(f, pVarsFro)
 
@@ -66,6 +63,6 @@ pGrid = np.linspace(1.0, 3.0, 100)
 path_dist = lambda k,l: np.linalg.norm(dW[k,:,:] - dW[l,:,:], mNorm)
 fName2 = fNameBase + "_pVar_2.npy"
 
-pVars2 = np.array([p_var_backbone(N-2, p, path_dist).value for p in pGrid])
+pVars2 = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
 with open(fName2, "wb") as f:
     np.save(f, pVars2)
