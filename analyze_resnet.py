@@ -24,6 +24,7 @@ with open(fNameBase + "_weights.npy", 'rb') as f:
 
 ## Plot some sample paths
 plt.plot(dW[:,3,90])
+plt.show()
 
 ## Compute p-variations of 1-dimensional sample path
 iIndex = 0
@@ -34,6 +35,7 @@ with open(fName_i_j, "rb") as f:
     pVars_i_j = np.load(f)
     
 plt.plot(pGrid, pVars_i_j)
+plt.show()
 
 ## Compute the p-variation for the whole matrix, using a specific matrix norm
 mNorm = 'fro'
@@ -44,6 +46,7 @@ with open(fNameFro, "rb") as f:
     pVarsFro = np.load(f)
         
 plt.plot(pGrid, pVarsFro)
+plt.show()
 ## Gives an increasing function???
 
 mNorm = 2
@@ -54,3 +57,4 @@ with open(fName2, "rb") as f:
     pVars2 = np.load(f)
         
 plt.plot(pGrid, pVars2)
+plt.show()

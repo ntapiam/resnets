@@ -15,7 +15,7 @@ from p_var import p_var_backbone
 
 ## Check if the variations should be re-computed
 nLayers = 128
-nEpochs = 10
+nEpochs = 100
 
 ##fNameBase = "resnet" + str(nLayers) + "_relu_lin_e" + str(nEpochs)
 fNameBase = f"resnet{nLayers}_relu_lin_e{nEpochs}"
