@@ -33,14 +33,16 @@ dW = np.array(dW_list)
 with open(fNameBase + "_weights.npy", 'wb') as f:
     np.save(f, dW)
 
-## Plot some sample paths
-##plt.plot(dW[:,3,90])
+## Now compute the path W
+W = np.cumsum(dW, axis=0)
+with open(fNameBase + "_weights_cumsum.npy", 'wb') as f:
+    np.save(f, W)
 
 ## Compute p-variations of 1-dimensional sample path
 iIndex = 0
 jIndex = 0
 pGrid = np.linspace(1.0, 3.0, 100)
-path_dist = lambda k, l: np.abs(dW[k,iIndex,jIndex] - dW[l,iIndex,jIndex])
+path_dist = lambda k, l: np.abs(W[k,iIndex,jIndex] - W[l,iIndex,jIndex])
 fName_i_j = fNameBase + f"_pVar_{iIndex}_{jIndex}.npy"
 
 pVars_i_j = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
@@ -51,7 +53,7 @@ with open(fName_i_j, "wb") as f:
 ## Compute the p-variation for the whole matrix, using a specific matrix norm
 mNorm = 'fro'
 pGrid = np.linspace(1.0, 3.0, 100)
-path_dist = lambda k,l: np.linalg.norm(dW[k,:,:] - dW[l,:,:], mNorm)
+path_dist = lambda k,l: np.linalg.norm(W[k,:,:] - W[l,:,:], mNorm)
 fNameFro = fNameBase + "_pVar_fro.npy"
 
 pVarsFro = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
@@ -61,7 +63,7 @@ with open(fNameFro, "wb") as f:
 
 mNorm = 2
 pGrid = np.linspace(1.0, 3.0, 100)
-path_dist = lambda k,l: np.linalg.norm(dW[k,:,:] - dW[l,:,:], mNorm)
+path_dist = lambda k,l: np.linalg.norm(W[k,:,:] - W[l,:,:], mNorm)
 fName2 = fNameBase + "_pVar_2.npy"
 
 pVars2 = np.array([p_var_backbone(nLayers-1, p, path_dist).value for p in pGrid])
