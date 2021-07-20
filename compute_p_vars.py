@@ -13,6 +13,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from p_var import p_var_backbone, p_var_backbone_ref
+from iss_pvar import p_var_2
 
 ## Check if the variations should be re-computed
 nLayers = 128
@@ -75,17 +76,60 @@ else:
         pVars2 = np.load(f)
         
 ## Plot the p-variations
-plt.plot(pGrid, pVars_i_j, "r-")
+plt.plot(pGrid, pVars_i_j**(1/pGrid), "r-")
 plt.xlabel("p")
 plt.title(f"p-Var of W[{iIndex},{jIndex}]")
 plt.show()
 
-plt.plot(pGrid, pVarsFro, "b-")
+plt.plot(pGrid, pVarsFro**(1/pGrid), "b-")
 plt.xlabel("p")
 plt.title("p-Var of W w.r.t. Frobenius norm")
 plt.show()
 
-plt.plot(pGrid, pVars2, "g-")
+plt.plot(pGrid, pVars2**(1/pGrid), "g-")
 plt.xlabel("p")
 plt.title("p-Var of W w.r.t. spectral norm")
+plt.show()
+
+###################################################################
+## Compute p-var of signature up to degree 2
+###################################################################
+
+print("--------------------------------------------------------------------")
+print("-- Compute p-var of signature up to degree 2. ----------------------")
+print("--------------------------------------------------------------------")
+
+if not os.path.isfile(fNameBase + "_issVar.npy"):
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    W_tens = torch.tensor(W.reshape((nLayers-1,-1)), device=dev)
+    
+    a_var = np.zeros_like(pGrid)
+    S_var = np.zeros_like(pGrid)
+    D_var = np.zeros_like(pGrid)
+    
+    for i in range(len(pGrid)):
+        a, S, D = p_var_2(W_tens, torch.linalg.norm, torch.linalg.norm, 
+                          pGrid[i])
+        a_var[i] = a
+        S_var[i] = S
+        D_var[i] = D
+    
+    
+    with open(fNameBase + "_issVar.npy", "wb") as f:
+        np.save(f, a_var)
+        np.save(f, S_var)
+        np.save(f, D_var)
+
+else:
+    with open(fNameBase + "_issVar.npy", "rb") as f:
+        a_var = np.load(f)
+        S_var = np.load(f)
+        D_var = np.load(f)
+        
+iss_var = a_var
+iss_var[pGrid >= 2] = iss_var[pGrid >= 2] + S_var[pGrid >= 2]
+
+plt.plot(pGrid, iss_var, "k-")
+plt.xlabel("p")
+plt.title("Iterated sum p-var")
 plt.show()

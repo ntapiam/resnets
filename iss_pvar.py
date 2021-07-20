@@ -51,8 +51,8 @@ def p_var_2(x, v_norm, m_norm, p):
             counter = counter + 1
     ## Now compute the p-variation norms
     a_var = p_var_backbone_ref(M, p, lambda i,j: a_norms[chi[(i,j)]]) ** (1/p)
-    S_var = p_var_backbone_ref(M, p, lambda i,j: S_norms[chi[(i,j)]]) ** (1/p)
-    D_var = p_var_backbone_ref(M, p, lambda i,j: D_norms[chi[(i,j)]]) ** (1/p)
+    S_var = p_var_backbone_ref(M, p/2, lambda i,j: S_norms[chi[(i,j)]]) ** (2/p)
+    D_var = p_var_backbone_ref(M, p/2, lambda i,j: D_norms[chi[(i,j)]]) ** (2/p)
     return a_var, S_var, D_var
     
 def _get_S0n(X, n_list):
@@ -62,4 +62,4 @@ def _get_S0n(X, n_list):
 def l2_norm(X):
     """Compute the L2 norm of a general tensor X, i.e., the square root of the
     sum of all squared entries."""
-    
+    return torch.linalg.norm(X)    
