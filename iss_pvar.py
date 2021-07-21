@@ -10,7 +10,7 @@ import numpy as np
 from iss2 import compute
 from p_var import p_var_backbone, p_var_backbone_ref
 
-def p_var_2(x, v_norm, m_norm, p):
+def p_var_2(x, v_norm, m_norm, p, device = "cpu"):
     """Compute the p-variation norm of the degree 2 part of the iterated sum
     signature of a time series.
     
@@ -22,6 +22,7 @@ def p_var_2(x, v_norm, m_norm, p):
     m_norm : function. A matrix norm on R^{dxd}. norm is supposed to accept a
             torch.tensor as argument.
     p : float. A positive scalar.
+    device : string. The device to use for torch, "cuda" or "cpu"
     
     Output
     ------
@@ -29,7 +30,6 @@ def p_var_2(x, v_norm, m_norm, p):
     degree 2."""
     assert len(x.shape) == 2
     M = x.shape[0]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     X = torch.tensor(x).to(device)
     ## Construct norm(S_{n,m}) for all n < m.
     S0n_l = _get_S0n(X, range(1, M))

@@ -1,16 +1,22 @@
 import torch
 from torch import nn
 
-
 class ResNetBlock(nn.Module):
-    def __init__(self):
+    def __init__(self, n = 784):
         super().__init__()
 
-        self.block = nn.Sequential(nn.ELU(), nn.Linear(28 * 28, 28 * 28, bias=False))
+        self.block = nn.Sequential(nn.ELU(), nn.Linear(n, n, bias=False))
 
     def forward(self, x):
         return x + self.block(x)
 
+class DenseBlock(nn.Module):
+     def __init__(self, n_in = 784, n_out = 784):
+        super().__init__()
+        self.block = nn.Sequential(nn.ELU(), nn.Linear(n_in, n_out, bias=True))
+
+     def forward(self, x): 
+        return self.block(x)
 
 class ResNet(nn.Module):
     def __init__(self, n_blocks=1):
@@ -26,6 +32,25 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         return self.resnet_stack(x)
+    
+class ResNetTower(nn.Module):
+    def __init__(self, n_nodes_initials, n_layers_final):
+        super().__init__()
+        layers = [nn.Flatten()]
+        n_nodes_initials = [784] + n_nodes_initials
+        for i in range(len(n_nodes_initials)-1):
+            layers.append(DenseBlock(n_nodes_initials[i],
+                                     n_nodes_initials[i+1]))
+        n = n_nodes_initials[-1]
+        for _ in range(n_layers_final):
+            layers.append(ResNetBlock(n))
+        
+        layers.append(nn.Linear(n, 10))
+        
+        self.resnet_stack = nn.Sequential(*layers)
+        
+    def forward(self, x):
+       return self.resnet_stack(x)    
 
 
 def train_loop(data, model, loss_fn, optim, device):
@@ -84,13 +109,36 @@ if __name__ == "__main__":
     training_dataloader = DataLoader(training_data, batch_size=64, pin_memory=True)
     test_dataloader = DataLoader(test_data, batch_size=64, pin_memory=True)
 
-    n_blocks = 128
+    # n_blocks = 128
+    # n_epochs = 100
+    # learning_rate = 1e-5
+
+    # DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # resnet = ResNet(n_blocks).to(DEVICE)
+    # loss_fn = nn.CrossEntropyLoss()
+    # optim = torch.optim.Adam(resnet.parameters(), lr=learning_rate)
+
+    # print(f"Training using device: {DEVICE}")
+    # try:
+    #     for t in range(n_epochs):
+    #         print(f"Epoch {t+1}")
+    #         train_loop(training_dataloader, resnet, loss_fn, optim, DEVICE)
+    #         test_loop(test_dataloader, resnet, loss_fn, optim, DEVICE)
+
+    # finally:
+    #     torch.save(resnet.state_dict(), f"resnet{n_blocks}_relu_lin_e{t+1}.pth")
+    # print("Done!")
+    
+    
+    n_nodes_initials = [512, 256, 128, 64]
+    n_layers_final = 128
     n_epochs = 100
     learning_rate = 1e-5
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-    resnet = ResNet(n_blocks).to(DEVICE)
+    resnet = ResNetTower(n_nodes_initials, n_layers_final).to(DEVICE)
     loss_fn = nn.CrossEntropyLoss()
     optim = torch.optim.Adam(resnet.parameters(), lr=learning_rate)
 
@@ -102,5 +150,6 @@ if __name__ == "__main__":
             test_loop(test_dataloader, resnet, loss_fn, optim, DEVICE)
 
     finally:
-        torch.save(resnet.state_dict(), f"resnet{n_blocks}_relu_lin_e{t+1}.pth")
+        torch.save(resnet.state_dict(), 
+                   f"resnet{n_layers_final}_{n_nodes_initials[-1]}_relu_lin_e{t+1}.pth")
     print("Done!")
