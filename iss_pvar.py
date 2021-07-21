@@ -38,9 +38,9 @@ def p_var_2(x, v_norm, m_norm, p, device = "cpu"):
     chi = {} # empty dictionary for indexing
     counter = 0
     ## ndarrays for holding the norms
-    a_norms = np.full((M-1)*M/2, np.nan)
-    S_norms = np.full((M-1)*M/2, np.nan)
-    D_norms = np.full((M-1)*M/2, np.nan)
+    a_norms = np.full(int((M-1)*M/2), np.nan)
+    S_norms = np.full(int((M-1)*M/2), np.nan)
+    D_norms = np.full(int((M-1)*M/2), np.nan)
     for j in range(1, M):
         for i in range(j):
             chi[(i,j)] = counter
