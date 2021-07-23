@@ -22,7 +22,7 @@ n_nodes_initials = [512, 256, 128, 64]
 n_layers_final = 128
 
 towerP = True # Check whether a tower-resnet is analyzed
-plotP = False # Should plots be made
+plotP = True # Should plots be made
 
 ##fNameBase = "resnet" + str(nLayers) + "_relu_lin_e" + str(nEpochs)
 fNameBase = f"resnet{n_layers_final}_{n_nodes_initials[-1]}_relu_lin_e{nEpochs}"\
@@ -140,7 +140,7 @@ else:
         D_var = np.load(f)
         
 iss_var = a_var
-iss_var[pGrid >= 2] = iss_var[pGrid >= 2] + S_var[pGrid >= 2]
+iss_var[pGrid >= 2] = iss_var[pGrid >= 2] + np.sqrt(S_var[pGrid >= 2])
 
 if plotP:
     plt.plot(pGrid, iss_var, "k-")
