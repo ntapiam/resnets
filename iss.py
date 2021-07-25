@@ -11,13 +11,14 @@ def compute(x):
 
     return S
 
-def pvar(n, p, d):
-    running_pvar = np.zeros(n)
+def pvar(n, p, d, device='cpu'):
+    running_pvar = torch.zeros(n, device=device)
 
     for k in range(1, n):
-        running_pvar[k] = np.max([running_pvar[j] + np.power(d(j, k), p) for j in range(k)])
+        dists = running_pvar[:k] + torch.pow(torch.tensor([d(j, k) for j in range(k)], device=device), p)
+        running_pvar[k] = torch.max(dists)
 
-    return np.power(running_pvar[-1], 1 / p)
+    return torch.pow(running_pvar[-1], 1 / p)
 
 
 if __name__ == "__main__":
@@ -35,7 +36,6 @@ if __name__ == "__main__":
     S = compute(x)
     t1 = time.perf_counter()
     print(f"Took {t1-t0:.>3f}s. Allocated {(sys.getsizeof(x.storage()) + sys.getsizeof(S.storage()))/ (1024 ** 2):.3f} MiB.")
-    x, S = x.cpu(), S.cpu()
 
     def level1_dist(j, k):
         return torch.linalg.norm(x[k] - x[j])
@@ -47,12 +47,9 @@ if __name__ == "__main__":
     pvars = np.zeros(len(ps))
     print("Computing p-variations for p ∈ [1, 3]")
     for k in trange(len(ps)):
-        pvars[k] = pvar(N, ps[k], level1_dist)
+        pvars[k] = pvar(N, ps[k], level1_dist, device=DEVICE)
         if ps[k] > 2:
-            pvars[k] += np.power(pvar(N, ps[k]/2, level2_dist), 0.5)
+            pvars[k] += torch.pow(pvar(N, ps[k]/2, level2_dist, device=DEVICE), 0.5)
 
-    plt.plot(ps, pvars)
-    plt.xlabel('p')
-    plt.show()
-
+    torch.save({'ps': ps, 'pvars': pvars}, 'pvar_data.pt')
     
