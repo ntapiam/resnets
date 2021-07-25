@@ -4,10 +4,10 @@ import numpy as np
 
 def compute(x):
     print(f"Computing level 2 matrices on device: {x.device}")
-    S = torch.zeros(x.shape[0], x.shape[1], x.shape[1], device=x.device)
+    S = torch.zeros(2, x.shape[1], x.shape[1], device=x.device)
     dx = x.diff(axis=0)
 
-    S[2:] = torch.einsum('ti,tj->tij', x[1:-1] - x[0], dx[1:]).cumsum(axis=0)
+    S = torch.vstack([S, torch.einsum('ti,tj->tij', x[1:-1] - x[0], dx[1:]).cumsum(axis=0)])
 
     return S
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     from tqdm import trange
 
     N = 100
-    d = 512
+    d = 64 * 64
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     x = torch.randn(N, d, device=DEVICE).cumsum(axis=0) / np.sqrt(N) #generate d-dimensional brownian path
@@ -35,6 +35,7 @@ if __name__ == "__main__":
     S = compute(x)
     t1 = time.perf_counter()
     print(f"Took {t1-t0:.>3f}s. Allocated {(sys.getsizeof(x.storage()) + sys.getsizeof(S.storage()))/ (1024 ** 2):.3f} MiB.")
+    x, S = x.cpu(), S.cpu()
 
     def level1_dist(j, k):
         return torch.linalg.norm(x[k] - x[j])
