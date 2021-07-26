@@ -8,7 +8,7 @@ def compute(x):
     dx = x.diff(axis=0)
 
     S = torch.vstack(
-        [S, torch.einsum("ti,tj->tij", x[1:-1] - x[0], dx[1:]).cumsum(axis=0)]
+        [S, ((x[1:-1] - x[0]).unsqueeze(1) * dx[1:].unsqueeze(-1)).cumsum(axis=0)]
     )
 
     return S
@@ -30,9 +30,10 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time, sys
     from tqdm import trange
+    from opt_einsum import contract
 
     N = 100
-    d = 512
+    d = 4096
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     x = torch.randn(N, d, device=DEVICE).cumsum(axis=0) / np.sqrt(
@@ -42,37 +43,30 @@ if __name__ == "__main__":
     t0 = time.perf_counter()
     S = compute(x)
     t1 = time.perf_counter()
+    memory = (sys.getsizeof(x.storage()) + sys.getsizeof(S.storage()))/(1024 ** 3)
     print(
-        f"Took {t1-t0:.>3f}s. Allocated {(sys.getsizeof(x.storage()) + sys.getsizeof(S.storage()))/(1024 ** 3):.3f} GiB."
+        f"Took {t1-t0:.>3f}s. Allocated {memory:.3f} GiB."
     )
 
     pairwise_x = torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1), dim=-1)
-    diag = torch.einsum("ti,tj->tij", x - x[0], x - x[0])
-    pairwise_S = torch.pow(
-        torch.linalg.matrix_norm(
-            S.unsqueeze(0) - S.unsqueeze(1) + diag.unsqueeze(1), ord="fro"
-        ),
-        0.5,
-    )
+    xout = (x-x[0]).unsqueeze(1) * (x-x[0]).unsqueeze(-1)
+    Sjk = torch.zeros(N, N)
+
+    for j in range(N):
+        for k in range(N):
+            Sjk[j,k] = torch.pow(torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord='fro'), 0.5).item()
 
     def level1_dist(j, k):
         return pairwise_x[j, k]
 
     def level2_dist(j, k):
-        return level1_dist(j, k) + pairwise_S[j, k]
+        return pairwise_x[j, k] + Sjk[j, k]
 
     ps = np.linspace(1, 3, 20)
     pvars = np.zeros(len(ps))
     x, S = x.cpu(), S.cpu()
-    total_memory = (
-        sys.getsizeof(pairwise_x.storage())
-        + sys.getsizeof(diag.storage())
-        + sys.getsizeof(pairwise_S.storage())
-    )
-    total_memory /= 1024 ** 3
-    print(
-        "Computing p-variations for p ∈ [1, 3]. Allocated {} GiB".format(total_memory)
-    )
+    print(torch.cuda.memory_summary(abbreviated=True))
+    print("Computing p-variations for p ∈ [1, 3]")
     for k in trange(len(ps)):
         dist = level1_dist if ps[k] <= 2 else level2_dist
         pvars[k] = pvar(N, ps[k], dist)
