@@ -3,7 +3,7 @@ import numpy as np
 
 
 def compute(x):
-    print(f"Computing level 2 matrices on device: {x.device}")
+    print(f"Computing level 2 matrices on device: {x.device}. Dimensions: {x.shape}")
     S = torch.zeros(2, x.shape[1], x.shape[1], device=x.device)
     dx = x.diff(axis=0)
 
