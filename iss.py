@@ -23,7 +23,7 @@ def pvar(n, p, d, device="cpu"):
         dists = running_pvar[:k] + torch.pow(
             torch.tensor([d(j, k) for j in range(k)], device=device), p
         )
-        running_pvar[k] = torch.max(dists)
+        running_pvar[k] = dists.max()
 
     return torch.pow(running_pvar[-1], 1 / p)
 
