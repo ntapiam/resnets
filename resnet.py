@@ -28,23 +28,7 @@ class DenseBlock(nn.Module):
         return self.block(x)
 
 
-class ResNet(nn.Module):
-    def __init__(self, n_blocks=1):
-        super().__init__()
-
-        layers = [nn.Flatten()]
-        for _ in range(n_blocks):
-            layers.append(ResNetBlock())
-
-        layers.append(nn.Linear(28 * 28, 10))
-
-        self.resnet_stack = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.resnet_stack(x)
-
-
-class ResNetTower(pl.LightningModule):
+class ResNet(pl.LightningModule):
     def __init__(self, n_nodes_initials, n_layers_final):
         super().__init__()
         self.example_input_array = torch.Tensor(64, 28, 28)
@@ -81,7 +65,7 @@ class ResNetTower(pl.LightningModule):
         pred = self.forward(x)
         loss = F.nll_loss(F.log_softmax(pred, dim=1), y)
         self.val_acc(pred, y)
-        logs = { "val_loss": loss, "val_acc": self.val_acc }
+        logs = {"val_loss": loss, "val_acc": self.val_acc}
         self.log_dict(logs)
 
     def test_step(self, test_batch, batch_idx):
@@ -89,7 +73,7 @@ class ResNetTower(pl.LightningModule):
         pred = self.forward(x)
         loss = F.nll_loss(F.log_softmax(pred, dim=1), y)
         self.test_acc(pred, y)
-        logs = { "test_loss": loss, "test_acc": self.test_acc }
+        logs = {"test_loss": loss, "test_acc": self.test_acc}
         self.log_dict(logs)
 
 
@@ -97,6 +81,10 @@ if __name__ == "__main__":
     from torchvision import datasets
     from torch.utils.data import DataLoader, random_split
     from torchvision.transforms import Compose, ToTensor, Normalize
+    from multiprocessing import cpu_count
+
+    num_workers = cpu_count()
+    accelerator = 'gpu' if torch.cuda.is_available() else 'cpu'
 
     training_data = datasets.MNIST(
         root="data",
@@ -123,32 +111,32 @@ if __name__ == "__main__":
         batch_size=64,
         pin_memory=True,
         persistent_workers=True,
-        num_workers=20
+        num_workers=num_workers
     )
     val_dataloader = DataLoader(
         val_data,
         batch_size=64,
         pin_memory=True,
         persistent_workers=True,
-        num_workers=20
+        num_workers=num_workers
     )
     test_dataloader = DataLoader(
         test_data,
         batch_size=64,
         pin_memory=True,
         persistent_workers=True,
-        num_workers=20
+        num_workers=num_workers
     )
 
     n_nodes_initials = [512, 256, 128, 64]
     n_layers_final = 128
     n_epochs = 100
 
-    resnet = ResNetTower(n_nodes_initials, n_layers_final)
+    resnet = ResNet(n_nodes_initials, n_layers_final)
 
     trainer = pl.Trainer(
         precision=16,
-        accelerator='gpu',
+        accelerator=accelerator,
         max_epochs=n_epochs,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
     )
