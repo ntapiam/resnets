@@ -155,7 +155,8 @@ fn pvar_wrapper(path: Vec<Vec<f64>>, p: f64, dist: &str) -> f64 {
 }
 
 #[pymodule]
-fn resnets(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "p_var")]
+fn pvar(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pvar_wrapper, m)?)?;
     Ok(())
 }
