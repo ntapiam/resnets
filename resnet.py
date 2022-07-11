@@ -220,3 +220,8 @@ if __name__ == "__main__":
     )
     trainer.fit(resnet, training_dataloader, val_dataloader)
     trainer.test(resnet, test_dataloader)
+
+    torch.save(
+        resnet.parameters(),
+        f"resnet{n_layers_final}_relu_lin_e{n_epochs}"
+    )
