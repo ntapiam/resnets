@@ -1,22 +1,31 @@
+#!/usr/bin/env python3
 import torch
 from torch import nn
+import torch.nn.functional as F
+import pytorch_lightning as pl
+
 
 class ResNetBlock(nn.Module):
-    def __init__(self, n = 784):
+    def __init__(self, n=784):
         super().__init__()
 
-        self.block = nn.Sequential(nn.ELU(), nn.Linear(n, n, bias=False))
+        self.block = nn.Sequential(nn.Tanh(), nn.Linear(n, n, bias=False))
 
     def forward(self, x):
         return x + self.block(x)
 
-class DenseBlock(nn.Module):
-     def __init__(self, n_in = 784, n_out = 784):
-        super().__init__()
-        self.block = nn.Sequential(nn.ELU(), nn.Linear(n_in, n_out, bias=True))
 
-     def forward(self, x): 
+class DenseBlock(nn.Module):
+    def __init__(self, n_in=784, n_out=784):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Tanh(),
+            nn.Linear(n_in, n_out, bias=True)
+        )
+
+    def forward(self, x):
         return self.block(x)
+
 
 class ResNet(nn.Module):
     def __init__(self, n_blocks=1):
@@ -32,61 +41,42 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         return self.resnet_stack(x)
-    
-class ResNetTower(nn.Module):
+
+
+class ResNetTower(pl.LightningModule):
     def __init__(self, n_nodes_initials, n_layers_final):
         super().__init__()
         layers = [nn.Flatten()]
         n_nodes_initials = [784] + n_nodes_initials
-        for i in range(len(n_nodes_initials)-1):
-            layers.append(DenseBlock(n_nodes_initials[i],
-                                     n_nodes_initials[i+1]))
+        for (a, b) in zip(n_nodes_initials[:-1], n_nodes_initials[1:]):
+            layers.append(DenseBlock(a, b))
+
         n = n_nodes_initials[-1]
         for _ in range(n_layers_final):
             layers.append(ResNetBlock(n))
-        
+
         layers.append(nn.Linear(n, 10))
-        
+
         self.resnet_stack = nn.Sequential(*layers)
-        
+
     def forward(self, x):
-       return self.resnet_stack(x)    
+        return self.resnet_stack(x)
 
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer
 
-def train_loop(data, model, loss_fn, optim, device):
-    size = len(data.dataset)
-    for batch, (X, y) in enumerate(data):
-        X = X.to(device)
-        y = y.to(device)
-        pred = model(X)
-        loss = loss_fn(pred, y)
+    def training_step(self, train_batch, batch_idx):
+        x, y = train_batch
+        pred = self.forward(x)
+        loss = F.nll_loss(pred, y)
+        return loss
 
-        optim.zero_grad()
-        loss.backward()
-        nn.utils.clip_grad_norm_(model.parameters(), 10)
-        optim.step()
-
-        if batch % 100 == 0:
-            loss, current = loss.item(), batch * len(X)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-
-
-def test_loop(data, model, loss_fn, optim, device):
-    size = len(data.dataset)
-    test_loss, correct = 0, 0
-    with torch.no_grad():
-        for X, y in data:
-            X = X.to(device)
-            y = y.to(device)
-            pred = model(X)
-            test_loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-
-    test_loss /= size
-    correct /= size
-    print(
-        f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n"
-    )
+    def validation_step(self, val_batch, batch_idx):
+        x, y = val_batch
+        pred = self.forward(x)
+        loss = F.nll_loss(pred, y)
+        return loss
 
 
 if __name__ == "__main__":
@@ -106,50 +96,25 @@ if __name__ == "__main__":
         download=True,
         transform=Compose([ToTensor(), Normalize(0, 255)]),
     )
-    training_dataloader = DataLoader(training_data, batch_size=64, pin_memory=True)
-    test_dataloader = DataLoader(test_data, batch_size=64, pin_memory=True)
 
-    # n_blocks = 128
-    # n_epochs = 100
-    # learning_rate = 1e-5
+    training_dataloader = DataLoader(
+        training_data,
+        batch_size=64,
+        pin_memory=True,
+        num_workers=12
+    )
+    test_dataloader = DataLoader(
+        test_data,
+        batch_size=64,
+        pin_memory=True,
+        num_workers=12
+    )
 
-    # DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # resnet = ResNet(n_blocks).to(DEVICE)
-    # loss_fn = nn.CrossEntropyLoss()
-    # optim = torch.optim.Adam(resnet.parameters(), lr=learning_rate)
-
-    # print(f"Training using device: {DEVICE}")
-    # try:
-    #     for t in range(n_epochs):
-    #         print(f"Epoch {t+1}")
-    #         train_loop(training_dataloader, resnet, loss_fn, optim, DEVICE)
-    #         test_loop(test_dataloader, resnet, loss_fn, optim, DEVICE)
-
-    # finally:
-    #     torch.save(resnet.state_dict(), f"resnet{n_blocks}_relu_lin_e{t+1}.pth")
-    # print("Done!")
-    
-    
     n_nodes_initials = [512, 256, 128, 64]
     n_layers_final = 128
     n_epochs = 100
-    learning_rate = 1e-5
 
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    resnet = ResNetTower(n_nodes_initials, n_layers_final)
 
-    resnet = ResNetTower(n_nodes_initials, n_layers_final).to(DEVICE)
-    loss_fn = nn.CrossEntropyLoss()
-    optim = torch.optim.Adam(resnet.parameters(), lr=learning_rate)
-
-    print(f"Training using device: {DEVICE}")
-    try:
-        for t in range(n_epochs):
-            print(f"Epoch {t+1}")
-            train_loop(training_dataloader, resnet, loss_fn, optim, DEVICE)
-            test_loop(test_dataloader, resnet, loss_fn, optim, DEVICE)
-
-    finally:
-        torch.save(resnet.state_dict(), 
-                   f"resnet{n_layers_final}_{n_nodes_initials[-1]}_relu_lin_e{t+1}.pth")
-    print("Done!")
+    trainer = pl.Trainer(precision=16)
+    trainer.fit(resnet, training_dataloader, test_dataloader)

@@ -9,6 +9,8 @@ torch = "*"
 numpy = "*"
 seaborn = "*"
 matplotlib = "*"
+pytorch-lightning = "*"
+torchvision = "*"
 
 [dev-packages]
 
