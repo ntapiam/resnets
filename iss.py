@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     ps = np.linspace(1, 3, 20)
     pvars = np.zeros(len(ps))
-    x, S = x.cpu(), S.cpu().reshape(S.shape[0], -1)
+    x, S = x.cpu().detach().numpy(), S.cpu().reshape(S.shape[0], -1).detach().numpy()
     print("Computing p-variations for p ∈ [1, 3]")
     t0 = time.perf_counter()
     for k in trange(len(ps)):
