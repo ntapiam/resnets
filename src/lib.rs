@@ -19,25 +19,21 @@ pub mod p_var {
         }
     }
 
-    pub fn p_var_backbone<'a, T>(
-        v: &'a [T],
-        p: f64,
-        dist: &'a [Vec<f64>],
-    ) -> Result<f64, PVarError> {
+    pub fn p_var_backbone<'a>(l: usize, p: f64, dist: &'a [Vec<f64>]) -> Result<f64, PVarError> {
         if p < 1. {
             return Err(PVarError::PRange);
         }
-        if v.is_empty() {
+        if l == 0 {
             return Err(PVarError::EmptyArray);
         }
 
-        if v.len() == 1 {
+        if l == 1 {
             return Ok(0.);
         }
 
-        let mut run_pvar = vec![0f64; v.len()];
+        let mut run_pvar = vec![0f64; l];
         let mut N = 1;
-        let s = v.len() - 1;
+        let s = l - 1;
 
         while (s >> N) > 0 {
             N += 1;
@@ -48,10 +44,10 @@ pub mod p_var {
         let center = |j, n| -> usize { ((j >> n) << n) + (1usize << (n - 1)) };
         let center_outside_range = |j, n| (j >> n == s >> n && (s >> (n - 1)) % 2usize == 0usize);
 
-        let mut point_links = vec![0usize; v.len()];
+        let mut point_links = vec![0usize; l];
         let mut max_p_var = 0f64;
 
-        for (j, _) in v.iter().enumerate() {
+        for j in 0..l {
             for n in 1..=N {
                 if !center_outside_range(j, n) {
                     let r = &mut radius[ind_n(j, n)];
@@ -112,21 +108,21 @@ pub mod p_var {
         Ok(max_p_var)
     }
 
-    pub fn p_var_backbone_ref<'a, T>(
-        v: &'a [T],
+    pub fn p_var_backbone_ref<'a>(
+        l: usize,
         p: f64,
         dist: &'a [Vec<f64>],
     ) -> Result<f64, PVarError> {
-        if v.len() == 0 {
+        if l == 0 {
             return Err(PVarError::EmptyArray);
         }
-        if v.len() == 1 {
+        if l == 1 {
             return Ok(0.);
         }
 
-        let mut cum_p_var = vec![0f64; v.len()];
+        let mut cum_p_var = vec![0f64; l];
 
-        for j in 1..v.len() {
+        for j in 1..l {
             for m in 0..j {
                 cum_p_var[j] = f64::max(cum_p_var[j], cum_p_var[m] + dist[m][j].powf(p));
             }
@@ -140,8 +136,8 @@ use pyo3::prelude::*;
 
 #[pyfunction]
 #[pyo3(name = "p_var")]
-fn pvar_wrapper(path: Vec<Vec<f64>>, p: f64, dist: Vec<Vec<f64>>) -> f64 {
-    p_var::p_var_backbone(&path, p, &dist).unwrap()
+fn pvar_wrapper(l: usize, p: f64, dist: Vec<Vec<f64>>) -> f64 {
+    p_var::p_var_backbone(l, p, &dist).unwrap()
 }
 
 #[pymodule]

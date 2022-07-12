@@ -36,8 +36,8 @@ mod tests {
         let dist = compute_dist(&v);
         while p <= 4. {
             assert_eq!(
-                p_var_backbone(&v, p, &dist).ok(),
-                p_var_backbone_ref(&v, p, &dist).ok()
+                p_var_backbone(v.len(), p, &dist).ok(),
+                p_var_backbone_ref(v.len(), p, &dist).ok()
             );
             p += 0.5;
         }
@@ -64,8 +64,8 @@ mod tests {
         let dist = compute_dist(&path2);
         for p in [1., f64::sqrt(2.), 2., f64::exp(1.)] {
             assert_eq!(
-                p_var_backbone(&path, p, &dist),
-                p_var_backbone_ref(&path, p, &dist)
+                p_var_backbone(path2.len(), p, &dist),
+                p_var_backbone_ref(path2.len(), p, &dist)
             );
         }
     }
