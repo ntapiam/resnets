@@ -1,6 +1,8 @@
 import torch
+from p_var import p_var
 
 
+@torch.no_grad()
 def compute(x):
     print(
         f"Computing level 2 matrices on device: {x.device}. Dimensions: (N={x.shape[0]}, d={x.shape[1]})"
@@ -22,54 +24,56 @@ if __name__ == "__main__":
     from tqdm import trange
     import itertools as it
     import numpy as np
-    from p_var import p_var
     from resnet import *
+    import multiprocessing as mp
 
     n_layers = 128
     epochs = 100
+    N = 64 * 64
 
-    model = torch.load(f"resnet{n_layers}_relu_lin_e{epochs}.pth")
-    x = torch.zeros(n_layers, 64 * 64)
-    for (k, v) in enumerate(it.islice(model.parameters(), 8, 136)):
-        x[k] = v.flatten()
+    with torch.no_grad():
+        model = torch.load(f"resnet{n_layers}_relu_lin_e{epochs}.pth")
+        x = torch.zeros(n_layers, 64 * 64)
+        for (k, v) in enumerate(it.islice(model.parameters(), 8, 136)):
+            x[k] = v.flatten()
 
-    t0 = time.perf_counter()
-    S = compute(x)
-    t1 = time.perf_counter()
-    memory = (sys.getsizeof(x.storage()) + sys.getsizeof(S.storage())) / (1024 ** 3)
-    print(f"Took {t1-t0:.>3f}s. Allocated {memory:.3f} GiB.")
+        t0 = time.perf_counter()
+        S = compute(x)
+        t1 = time.perf_counter()
+        memory = (sys.getsizeof(x.storage()) + sys.getsizeof(S.storage())) / (1024 ** 3)
+        print(f"Took {t1-t0:.>3f}s. Allocated {memory:.3f} GiB.")
 
-    print("Precomputing pairwise norms.")
-    t0 = time.perf_counter()
-    pairwise_x = torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1), dim=-1)
-    xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
-    Sjk = torch.zeros(N, N)
+        print("Precomputing pairwise norms.")
+        t0 = time.perf_counter()
+        pairwise_x = torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1), dim=-1).cpu().numpy()
+        xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
+        Sjk = torch.zeros(N, N)
 
-    for j in range(N):
-        for k in range(N):
-            Sjk[j, k] = torch.pow(
-                torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"), 0.5
-            ).item()
+        for j in trange(n_layers):
+            for k in trange(n_layers, leave=False):
+                Sjk[j, k] = torch.pow(
+                    torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"), 0.5
+                ).item()
 
-    t1 = time.perf_counter()
-    memory2 = (sys.getsizeof(pairwise_x.storage()) + sys.getsizeof(Sjk.storage())) / (
-        1024 ** 3
-    )
-    print(
-        f"Took {t1-t0:.>3f}s. Allocated {memory2:.>3f} GiB ({memory + memory2:.3f} GiB total)."
-    )
+        Sjk = Sjk.cpu().numpy()
+        t1 = time.perf_counter()
+        # memory2 = (sys.getsizeof(pairwise_x.storage()) + sys.getsizeof(Sjk.storage())) / (
+        #     1024 ** 3
+        # )
+        # print(
+        #     f"Took {t1-t0:.>3f}s. Allocated {memory2:.>3f} GiB ({memory + memory2:.3f} GiB total)."
+        # )
 
-    ps = np.linspace(1, 3, 20)
-    pvars = np.zeros(len(ps))
-    x, S = x.cpu().detach().numpy(), S.cpu().reshape(S.shape[0], -1).detach().numpy()
-    print("Computing p-variations for p ∈ [1, 3]")
-    t0 = time.perf_counter()
-    for k in trange(len(ps)):
-        curr_pvar = p_var(x, ps[k], pairwise_x) ** (1 / ps[k])
-        if ps[k] >= 2:
-            curr_pvar += p_var(S, ps[k] / 2, Sjk) ** (2 / ps[k])
-    t1 = time.perf_counter()
-    print(f"Took {t1-t0:.>3f}s.")
+        ps = np.linspace(1, 3, 20)
+        pvars = np.zeros(len(ps))
+        print("Computing p-variations for p ∈ [1, 3]")
+        t0 = time.perf_counter()
+        with mp.Pool() as p:
+            pvars = np.array(p.starmap(p_var, zip(it.repeat(128), ps, it.repeat(pairwise_x)))) ** (1/ps)
+            pvars[ps>=2] += np.array(p.starmap(p_var, zip(it.repeat(128), ps[ps>=2], it.repeat(Sjk)))) ** (2/ps[ps>=2])
+
+        t1 = time.perf_counter()
+        print(f"Took {t1-t0:.>3f}s.")
 
     sns.set_theme()
     plt.plot(ps, pvars)
