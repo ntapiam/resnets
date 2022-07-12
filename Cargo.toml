@@ -10,3 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.16.5", features = ["extension-module"] }
+
+[dev-dependencies]
+rand = { version = "0.8.5", features = ["min_const_gen"] }

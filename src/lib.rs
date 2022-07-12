@@ -112,11 +112,11 @@ pub mod p_var {
         Ok(max_p_var)
     }
 
-    pub fn p_var_backbone_ref<'a, T, F>(v: &'a [T], p: f64, dist: F) -> Result<f64, PVarError>
-    where
-        F: Fn(&'a T, &'a T) -> f64,
-        T: Copy,
-    {
+    pub fn p_var_backbone_ref<'a, T>(
+        v: &'a [T],
+        p: f64,
+        dist: &'a [Vec<f64>],
+    ) -> Result<f64, PVarError> {
         if v.len() == 0 {
             return Err(PVarError::EmptyArray);
         }
@@ -128,7 +128,7 @@ pub mod p_var {
 
         for j in 1..v.len() {
             for m in 0..j {
-                cum_p_var[j] = f64::max(cum_p_var[j], cum_p_var[m] + dist(&v[m], &v[j]).powf(p));
+                cum_p_var[j] = f64::max(cum_p_var[j], cum_p_var[m] + dist[m][j].powf(p));
             }
         }
 
