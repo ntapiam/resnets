@@ -39,31 +39,25 @@ if __name__ == "__main__":
     memory = (sys.getsizeof(x.storage()) + sys.getsizeof(S.storage())) / (1024 ** 3)
     print(f"Took {t1-t0:.>3f}s. Allocated {memory:.3f} GiB.")
 
-    # print("Precomputing pairwise norms.")
-    # t0 = time.perf_counter()
-    # pairwise_x = torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1), dim=-1)
-    # xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
-    # Sjk = torch.zeros(N, N)
+    print("Precomputing pairwise norms.")
+    t0 = time.perf_counter()
+    pairwise_x = torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1), dim=-1)
+    xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
+    Sjk = torch.zeros(N, N)
 
-    # for j in range(N):
-    #     for k in range(N):
-    #         Sjk[j, k] = torch.pow(
-    #             torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"), 0.5
-    #         ).item()
+    for j in range(N):
+        for k in range(N):
+            Sjk[j, k] = torch.pow(
+                torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"), 0.5
+            ).item()
 
-    # t1 = time.perf_counter()
-    # memory2 = (sys.getsizeof(pairwise_x.storage()) + sys.getsizeof(Sjk.storage())) / (
-    #     1024 ** 3
-    # )
-    # print(
-    #     f"Took {t1-t0:.>3f}s. Allocated {memory2:.>3f} GiB ({memory + memory2:.3f} GiB total)."
-    # )
-
-    # def level1_dist(j, k):
-    #     return pairwise_x[j, k]
-
-    # def level2_dist(j, k):
-    #     return pairwise_x[j, k] + Sjk[j, k]
+    t1 = time.perf_counter()
+    memory2 = (sys.getsizeof(pairwise_x.storage()) + sys.getsizeof(Sjk.storage())) / (
+        1024 ** 3
+    )
+    print(
+        f"Took {t1-t0:.>3f}s. Allocated {memory2:.>3f} GiB ({memory + memory2:.3f} GiB total)."
+    )
 
     ps = np.linspace(1, 3, 20)
     pvars = np.zeros(len(ps))
@@ -71,9 +65,9 @@ if __name__ == "__main__":
     print("Computing p-variations for p ∈ [1, 3]")
     t0 = time.perf_counter()
     for k in trange(len(ps)):
-        curr_pvar = p_var(x, ps[k], 'euclidean') ** (1 / ps[k])
+        curr_pvar = p_var(x, ps[k], pairwise_x) ** (1 / ps[k])
         if ps[k] >= 2:
-            curr_pvar += p_var(S, ps[k] / 2, 'euclidean') ** (2 / ps[k])
+            curr_pvar += p_var(S, ps[k] / 2, Sjk) ** (2 / ps[k])
     t1 = time.perf_counter()
     print(f"Took {t1-t0:.>3f}s.")
 

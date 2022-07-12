@@ -19,10 +19,11 @@ pub mod p_var {
         }
     }
 
-    pub fn p_var_backbone<'a, T, F>(v: &'a [T], p: f64, dist: F) -> Result<f64, PVarError>
-    where
-        F: Fn(&'a T, &'a T) -> f64,
-    {
+    pub fn p_var_backbone<'a, T>(
+        v: &'a [T],
+        p: f64,
+        dist: &'a [Vec<f64>],
+    ) -> Result<f64, PVarError> {
         if p < 1. {
             return Err(PVarError::PRange);
         }
@@ -43,18 +44,18 @@ pub mod p_var {
         }
 
         let mut radius = vec![0f64; s];
-        let ind_n = |j, n| (s >> n) + (j >> n);
-        let center = |j, n| ((j >> n) << n) + (1usize << (n - 1));
+        let ind_n = |j, n| -> usize { (s >> n) + (j >> n) };
+        let center = |j, n| -> usize { ((j >> n) << n) + (1usize << (n - 1)) };
         let center_outside_range = |j, n| (j >> n == s >> n && (s >> (n - 1)) % 2usize == 0usize);
 
         let mut point_links = vec![0usize; v.len()];
         let mut max_p_var = 0f64;
 
-        for (j, u) in v.iter().enumerate() {
+        for (j, _) in v.iter().enumerate() {
             for n in 1..=N {
                 if !center_outside_range(j, n) {
                     let r = &mut radius[ind_n(j, n)];
-                    *r = f64::max(*r, dist(&v[center(j, n)], u));
+                    *r = f64::max(*r, dist[center(j, n)][j]);
                 }
             }
             if j == 0 {
@@ -64,7 +65,7 @@ pub mod p_var {
             let mut m = j - 1;
             point_links[j] = m;
 
-            let mut delta = dist(&v[m], u);
+            let mut delta = dist[m][j];
 
             max_p_var = run_pvar[m] + delta.powf(p);
 
@@ -79,7 +80,7 @@ pub mod p_var {
                 let mut delta_needs_update = true;
                 while n > 0 {
                     if !center_outside_range(m, n) {
-                        let id = radius[ind_n(m, n)] + dist(&v[center(m, n)], u);
+                        let id = radius[ind_n(m, n)] + dist[center(m, n)][j];
                         if delta >= id {
                             break;
                         } else if delta_needs_update {
@@ -95,7 +96,7 @@ pub mod p_var {
                 if n > 0 {
                     m = (m >> n) << n;
                 } else {
-                    let d = dist(&v[m], u);
+                    let d = dist[m][j];
                     if d >= delta {
                         let new_p_var = run_pvar[m] + d.powf(p);
                         if new_p_var >= max_p_var {
@@ -139,19 +140,8 @@ use pyo3::prelude::*;
 
 #[pyfunction]
 #[pyo3(name = "p_var")]
-fn pvar_wrapper(path: Vec<Vec<f64>>, p: f64, dist: &str) -> f64 {
-    let dist_fn = match dist {
-        "euclidean" => |a: &Vec<f64>, b: &Vec<f64>| {
-            a.iter()
-                .zip(b)
-                .map(|(x, y)| (x - y) * (x - y))
-                .sum::<f64>()
-                .sqrt()
-        },
-        _ => panic!("distance function not supported"),
-    };
-
-    p_var::p_var_backbone(&path, p, dist_fn).unwrap()
+fn pvar_wrapper(path: Vec<Vec<f64>>, p: f64, dist: Vec<Vec<f64>>) -> f64 {
+    p_var::p_var_backbone(&path, p, &dist).unwrap()
 }
 
 #[pymodule]
