@@ -207,7 +207,7 @@ if __name__ == "__main__":
     )
 
     n_nodes_initials = [512, 256, 128, 64]
-    n_layers_final = 128
+    n_layers_final = 20
     n_epochs = 100
 
     resnet = ResNet(n_nodes_initials, n_layers_final)
@@ -222,6 +222,6 @@ if __name__ == "__main__":
     trainer.test(resnet, test_dataloader)
 
     torch.save(
-        resnet.parameters(),
-        f"resnet{n_layers_final}_relu_lin_e{n_epochs}"
+        resnet,
+        f"resnet{n_layers_final}_relu_lin_e{n_epochs}.pth"
     )
