@@ -18,78 +18,95 @@ def compute(x):
 
 
 if __name__ == "__main__":
-    import itertools as it
-    import multiprocessing as mp
-    import sys
-    import time
-
     import matplotlib.pyplot as plt
-    import numpy as np
     import seaborn as sns
-    from tqdm import tqdm, trange
+    from pathlib import Path
+    import itertools as it
 
     from resnet import DenseBlock, ResNet, ResNetBlock
 
-    n_layers = 128
+    n_layers = 512
     epochs = 100
     N = 64 * 64
+    
+    fname = Path(f"pvar_data_r{n_layers}_e{epochs}.pth")
+    model_fname = Path(f"resnet{n_layers}_relu_lin_e{epochs}.pth")
+    model = torch.load(model_fname)
 
-    with torch.no_grad():
-        model = torch.load(f"resnet{n_layers}_relu_lin_e{epochs}.pth")
-        x = torch.zeros(n_layers, 64 * 64)
-        for (k, v) in enumerate(it.islice(model.parameters(), 8,
-                                          8 + n_layers)):
-            x[k] = v.flatten()
+    x = torch.zeros(n_layers, 64 * 64)
+    for (k, v) in enumerate(it.islice(model.parameters(), 8,
+                                      8 + n_layers)):
+        x[k] = v.flatten()
 
-        t0 = time.perf_counter()
-        S = compute(x)
-        t1 = time.perf_counter()
-        memory = (sys.getsizeof(x.storage()) +
-                  sys.getsizeof(S.storage())) / (1024**3)
-        print(f"Took {t1-t0:.>3f}s. Allocated {memory:.3f} GiB.")
 
-        print("Precomputing pairwise norms.")
-        t0 = time.perf_counter()
-        pairwise_x = (torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1),
-                                               dim=-1).cpu().numpy())
-        xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
-        Sjk = torch.zeros(N, N)
+    if fname.is_file():
+        print("Using saved data")
+        data = torch.load(fname)
+        pvars = data['pvars']
+        ps = data['ps']
+    else:
+        import multiprocessing as mp
+        import sys
+        import time
+        from tqdm import tqdm, trange
+        import numpy as np
 
-        for j in trange(n_layers):
-            for k in trange(n_layers, leave=False):
-                Sjk[j, k] = torch.pow(
-                    torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"),
-                    0.5).item()
+        with torch.no_grad():
+            t0 = time.perf_counter()
+            S = compute(x)
+            t1 = time.perf_counter()
+            memory = (sys.getsizeof(x.storage()) +
+                      sys.getsizeof(S.storage())) / (1024**3)
+            print(f"Took {t1-t0:.>3f}s. Allocated {memory:.3f} GiB.")
 
-        Sjk = Sjk.cpu().numpy()
-        t1 = time.perf_counter()
-        # memory2 = (sys.getsizeof(pairwise_x.storage()) + sys.getsizeof(Sjk.storage())) / (
-        #     1024 ** 3
-        # )
-        # print(
-        #     f"Took {t1-t0:.>3f}s. Allocated {memory2:.>3f} GiB ({memory + memory2:.3f} GiB total)."
-        # )
+            print("Precomputing pairwise norms.")
+            t0 = time.perf_counter()
+            pairwise_x = (torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1),
+                                                   dim=-1).cpu().numpy())
+            xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
+            Sjk = torch.zeros(N, N)
 
-        ps = np.linspace(1, 3, 20)
-        pvars = np.zeros(len(ps))
-        print("Computing p-variations for p ∈ [1, 3]")
-        t0 = time.perf_counter()
-        with mp.Pool() as p:
-            inputs = zip(it.repeat(n_layers), ps, it.repeat(pairwise_x))
-            pvars = np.array(p.starmap(p_var, tqdm(inputs,
-                                                   total=len(ps))))**(1 / ps)
-            inputs = zip(it.repeat(n_layers), ps[ps >= 2], it.repeat(Sjk))
-            pvars[ps >= 2] += np.array(
-                p.starmap(p_var, tqdm(inputs,
-                                      len(ps[ps >= 2]))))**(2 / ps[ps >= 2])
+            for j in trange(n_layers):
+                for k in trange(n_layers, leave=False):
+                    Sjk[j, k] = torch.pow(
+                        torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"),
+                        0.5).item()
 
-        t1 = time.perf_counter()
-        print(f"Took {t1-t0:.>3f}s.")
+            Sjk = Sjk.cpu().numpy()
+            t1 = time.perf_counter()
+            # memory2 = (sys.getsizeof(pairwise_x.storage()) + sys.getsizeof(Sjk.storage())) / (
+            #     1024 ** 3
+            # )
+            # print(
+            #     f"Took {t1-t0:.>3f}s. Allocated {memory2:.>3f} GiB ({memory + memory2:.3f} GiB total)."
+            # )
+
+            ps = np.linspace(1, 3, 20)
+            print("Computing p-variations for p ∈ [1, 3]")
+            t0 = time.perf_counter()
+            with mp.Pool() as p:
+                inputs = zip(it.repeat(n_layers), ps, it.repeat(pairwise_x))
+                pvars = np.array(p.starmap(p_var, tqdm(inputs,
+                                                       total=len(ps))))**(1 / ps)
+                inputs = zip(it.repeat(n_layers), ps[ps >= 2], it.repeat(Sjk))
+                pvars[ps >= 2] += np.array(
+                    p.starmap(p_var, tqdm(inputs,
+                                          total=len(ps[ps >= 2]))))**(1 / ps[ps >= 2])
+
+            t1 = time.perf_counter()
+            print(f"Took {t1-t0:.>3f}s.")
+            torch.save({"ps": ps, "pvars": pvars}, fname)
 
     sns.set_theme()
-    plt.plot(ps, pvars)
-    plt.xlabel("p")
-    plt.show()
-    plt.savefig("pvar_plot.pdf")
+    plt.plot(ps[ps<2], pvars[ps<2], label=r"$||\mathbf{w}||_p$")
+    plt.plot(ps[ps>=2], pvars[ps>=2], label=r"$|||\mathbb{W}|||_p$")
+    plt.xlabel(r"$p$")
+    plt.legend()
+    plt.savefig(f"pvar_plot_r{n_layers}_e{epochs}.pdf")
 
-    torch.save({"ps": ps, "pvars": pvars}, "pvar_data.pt")
+    with torch.no_grad():
+        plt.clf()
+        plt.plot(1+torch.arange(n_layers), x[:,0], label=r"$\mathrm{d}W_{0,0}(t)")
+        plt.plot(1+torch.arange(n_layers), x[:,0].cumsum(dim=0) - x[0,0], label=r"$W_{0,0}(t)")
+        plt.xlabel(r"layer ($t$)")
+        plt.savefig(f"evol_plot_r{n_layers}_e{epochs}.pdf")
