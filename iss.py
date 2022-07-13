@@ -18,26 +18,25 @@ def compute(x):
 
 
 if __name__ == "__main__":
+    import itertools as it
+    from pathlib import Path
+
     import matplotlib.pyplot as plt
     import seaborn as sns
-    from pathlib import Path
-    import itertools as it
 
     from resnet import DenseBlock, ResNet, ResNetBlock
 
     n_layers = 512
     epochs = 100
     N = 64 * 64
-    
+
     fname = Path(f"pvar_data_r{n_layers}_e{epochs}.pth")
     model_fname = Path(f"resnet{n_layers}_relu_lin_e{epochs}.pth")
     model = torch.load(model_fname)
 
     x = torch.zeros(n_layers, 64 * 64)
-    for (k, v) in enumerate(it.islice(model.parameters(), 8,
-                                      8 + n_layers)):
+    for (k, v) in enumerate(it.islice(model.parameters(), 8, 8 + n_layers)):
         x[k] = v.flatten()
-
 
     if fname.is_file():
         print("Using saved data")
@@ -48,8 +47,9 @@ if __name__ == "__main__":
         import multiprocessing as mp
         import sys
         import time
-        from tqdm import tqdm, trange
+
         import numpy as np
+        from tqdm import tqdm, trange
 
         with torch.no_grad():
             t0 = time.perf_counter()
@@ -61,7 +61,8 @@ if __name__ == "__main__":
 
             print("Precomputing pairwise norms.")
             t0 = time.perf_counter()
-            pairwise_x = (torch.linalg.vector_norm(x.unsqueeze(0) - x.unsqueeze(1),
+            pairwise_x = (torch.linalg.vector_norm(x.unsqueeze(0) -
+                                                   x.unsqueeze(1),
                                                    dim=-1).cpu().numpy())
             xout = (x - x[0]).unsqueeze(1) * (x - x[0]).unsqueeze(-1)
             Sjk = torch.zeros(N, N)
@@ -69,8 +70,8 @@ if __name__ == "__main__":
             for j in trange(n_layers):
                 for k in trange(n_layers, leave=False):
                     Sjk[j, k] = torch.pow(
-                        torch.linalg.matrix_norm(S[k] - S[j] + xout[j], ord="fro"),
-                        0.5).item()
+                        torch.linalg.matrix_norm(S[k] - S[j] + xout[j],
+                                                 ord="fro"), 0.5).item()
 
             Sjk = Sjk.cpu().numpy()
             t1 = time.perf_counter()
@@ -86,27 +87,36 @@ if __name__ == "__main__":
             t0 = time.perf_counter()
             with mp.Pool() as p:
                 inputs = zip(it.repeat(n_layers), ps, it.repeat(pairwise_x))
-                pvars = np.array(p.starmap(p_var, tqdm(inputs,
-                                                       total=len(ps))))**(1 / ps)
+                pvars = np.array(p.starmap(p_var,
+                                           tqdm(inputs,
+                                                total=len(ps))))**(1 / ps)
                 inputs = zip(it.repeat(n_layers), ps[ps >= 2], it.repeat(Sjk))
                 pvars[ps >= 2] += np.array(
-                    p.starmap(p_var, tqdm(inputs,
-                                          total=len(ps[ps >= 2]))))**(1 / ps[ps >= 2])
+                    p.starmap(p_var,
+                              tqdm(inputs,
+                                   total=len(ps[ps >= 2]))))**(1 / ps[ps >= 2])
 
             t1 = time.perf_counter()
             print(f"Took {t1-t0:.>3f}s.")
             torch.save({"ps": ps, "pvars": pvars}, fname)
 
     sns.set_theme()
-    plt.plot(ps[ps<2], pvars[ps<2], label=r"$||\mathbf{w}||_p$")
-    plt.plot(ps[ps>=2], pvars[ps>=2], label=r"$|||\mathbb{W}|||_p$")
+    plt.plot(ps[ps < 2], pvars[ps < 2], label=r"$||\mathbf{w}||_p$")
+    plt.plot(ps[ps >= 2], pvars[ps >= 2], label=r"$|||\mathbb{W}|||_p$")
     plt.xlabel(r"$p$")
     plt.legend()
     plt.savefig(f"pvar_plot_r{n_layers}_e{epochs}.pdf")
 
     with torch.no_grad():
         plt.clf()
-        plt.plot(1+torch.arange(n_layers), x[:,0], label=r"$\mathrm{d}W_{0,0}(t)")
-        plt.plot(1+torch.arange(n_layers), x[:,0].cumsum(dim=0) - x[0,0], label=r"$W_{0,0}(t)")
-        plt.xlabel(r"layer ($t$)")
+        dW = x[:, 1].clone()
+        W = dW.cumsum(dim=0) - dW[0]
+        dW /= dW.abs().max()
+        W /= W.abs().max()
+        plt.plot(1 + torch.arange(n_layers),
+                 dW,
+                 label=r"$\mathbf{w}^1_{k+1}-\mathbf{w}^1_k$")
+        plt.plot(1 + torch.arange(n_layers), W, label=r"$\mathbf{w}^1_k-\mathbf{w}^1_0$")
+        plt.xlabel(r"layer ($k$)")
+        plt.legend()
         plt.savefig(f"evol_plot_r{n_layers}_e{epochs}.pdf")
